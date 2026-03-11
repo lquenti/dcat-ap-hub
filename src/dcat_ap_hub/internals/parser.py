@@ -8,6 +8,7 @@ from urllib import request
 from dcat_ap_hub.internals.constants import (
     HF_FORMAT,
     HF_METADATA_PROFILE_URI,
+    MODEL_TYPE,
     ONNX_FORMAT,
     ONNX_METADATA_PROFILE_URI,
     PROCESSOR_PROFILE_URI,
@@ -66,7 +67,7 @@ def parse_json_content(data: Dict, source_name: str) -> DatasetMetadata:
         types = _extract_list(entry.get("@type", []))
 
         if "dcat:Dataset" in types:
-            is_model = "http://www.w3.org/ns/mls#Model" in types
+            is_model = MODEL_TYPE in types
             dataset_meta = DatasetMetadata(
                 title=_extract_lang_value(entry.get("dct:title", "")),
                 description=_extract_lang_value(entry.get("dct:description", "")),

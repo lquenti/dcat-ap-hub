@@ -1,3 +1,5 @@
+MODEL_TYPE = "http://www.w3.org/ns/mls#Model"
+
 PROCESSOR_PROFILE_URI = "http://example.org/profiles/Processor"
 
 HF_METADATA_PROFILE_URI = "http://example.org/profiles/HuggingFaceMetadata"

@@ -1,6 +1,33 @@
 # DCAT-AP Hub
 
-This library enables easy downloading and loading of datasets and models whose metadata is provided in the DCAT-AP format. Currently, only JSON-LD is supported.
+`dcat-ap-hub` is a Python library for working with datasets and pretrained models described using DCAT-AP metadata.
+It is built around a practical workflow that resolves metadata, downloads artifacts, and loads datasets or models through a single interface.
+Currently, metadata parsing supports **JSON-LD** from direct URLs, content negotiation, and local files.
+
+### Typical Workflow
+
+1. Retrieve dataset metadata in DCAT-AP from:
+   - remote JSON-LD URLs (`Dataset.from_url(...)`)
+   - local metadata files (`Dataset.from_file(...)`)
+   - local directories that contain metadata files (`Dataset.from_directory(...)`)
+
+2. Download files referenced by distributions and related resources (`dcat:downloadURL`) into a local dataset directory.
+
+3. Load files or models for use in code:
+   - Load files as a lazy `FileCollection` with built-in loaders for common formats such as CSV, Excel, JSON, Parquet, images, PDF, text, HTML/XML, and NumPy arrays.
+   - Load pretrained models through Hugging Face, ONNX, or sklearn-style model scripts.
+
+### Benchmarking With Catalogues
+
+Optionally, related resources can be used to attach a processor script that is detected automatically and applied to transform raw files.
+This enables the definition of multi-dataset benchmarks as DCAT-AP catalogues, since benchmarking requires each dataset to provide a fixed train-test split, which can be generated through these processor scripts.
+
+### Requirements for Metadata
+
+- Each dataset metadata record must include a `dcat:Dataset` entry.
+- Entries with `@type` set to `mls:Model` are treated as models.
+- Roles for distributions (`dcat:Distribution`) and related resources (`rdfs:Resource`) can be defined through `dct:conformsTo` and/or `dct:format`, allowing the specification of model types or processors.
+- The `dcat:downloadURL` field identifies the files to be downloaded.
 
 ### How To Install
 
@@ -15,54 +42,53 @@ pip install "dcat-ap-hub[onnx]"
 pip install "dcat-ap-hub[huggingface]"
 ```
 
-### How To Load Datasets
+### Example of Loading a Dataset
 
 ```python
 from dcat_ap_hub import Dataset
 
-url = "https://data.europa.eu/api/hub/repo/datasets/7b715249-0c76-4592-9df6-f36b9a47f6e5.jsonld"
+url = "https://ki-daten.hlrs.de/de/dataset/https-piveau-io-set-data-predictive-maintenance-ttl"
 
 ds = Dataset.from_url(url)
 files = ds.download(data_dir="./data")
 ```
 
-### How To Load SKLearn Models
+### Example of Loading a Huggingface Model
 
 ```python
 from dcat_ap_hub import Dataset
 
-url = "https://ki-daten.hlrs.de/hub/repo/datasets/6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837.jsonld"
+url = "https://ki-daten.hlrs.de/de/model/prajjwal1-bert-tiny"
 
 ds = Dataset.from_url(url)
-ds.download(data_dir="./data")
-model = ds.load_model(model_dir="./models")
-```
-
-### How To Load Huggingface Models
-
-```python
-from dcat_ap_hub import Dataset
-
-url = "https://ki-daten.hlrs.de/hub/repo/datasets/6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837.jsonld"
-
-ds = Dataset.from_url(url)
-ds.download(data_dir="./data")
+files = ds.download(data_dir="./data")
 model, processor, metadata = ds.load_model(model_dir="./models")
 ```
 
-### How To Process Datasets If Supported
+### Example of Loading a SKLearn Model
 
 ```python
 from dcat_ap_hub import Dataset
 
-url = "https://data.europa.eu/api/hub/repo/datasets/7b715249-0c76-4592-9df6-f36b9a47f6e5.jsonld"
+url = "https://ki-daten.hlrs.de/de/model/https-piveau-io-set-data-pre-trained-transformer"
 
 ds = Dataset.from_url(url)
-ds.download(data_dir="./data")
-files = ds.process(processed_dir="./processed")
+files = ds.download(data_dir="./data")
+model = ds.load_model(model_dir="./models")
+```
+
+### Example of Processing a Dataset if Available
+
+```python
+from dcat_ap_hub import Dataset
+
+url = "https://ki-daten.hlrs.de/de/dataset/https-piveau-io-set-data-predictive-maintenance-ttl"
+
+ds = Dataset.from_url(url)
+files = ds.download(data_dir="./data")
+processed = ds.process(processed_dir="./processed")
 ```
 
 ### Funding
 
 This project was developed using resources from the HammerHAI project, an EU co-funded AI Factory initiative operated by the High-Performance Computing Center Stuttgart and supported by the European Commission as well as German federal and state ministries. It is funded by the European High Performance Computing Joint Undertaking under Grant Agreement No. 101234027.
-
