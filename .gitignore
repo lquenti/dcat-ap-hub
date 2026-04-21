@@ -24,3 +24,6 @@ notes.md
 
 dist
 demo
+
+.pytest_cache/
+.uv-cache/
