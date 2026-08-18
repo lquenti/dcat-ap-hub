@@ -40,6 +40,9 @@ pip install "dcat-ap-hub[onnx]"
 
 # Install with Hugging Face model loading support
 pip install "dcat-ap-hub[huggingface]"
+
+# Install with S3-compatible download support (MinIO, R2, Wasabi, AWS S3, ...)
+pip install "dcat-ap-hub[s3]"
 ```
 
 ### Example of Loading a Dataset
@@ -88,6 +91,20 @@ ds = Dataset.from_url(url)
 files = ds.download(data_dir="./data")
 processed = ds.process(processed_dir="./processed")
 ```
+
+### S3-Compatible Downloads
+
+For `s3://` download URLs, the service endpoint is read from `dcat:accessURL` in the metadata record:
+
+```json
+{
+  "@type": "dcat:Distribution",
+  "dcat:accessURL": "https://minio.example.org",
+  "dcat:downloadURL": "s3://my-bucket/datasets/pmd/data.csv"
+}
+```
+
+Authentication uses boto3's standard credential chain (environment variables, `~/.aws/credentials`, or IAM role).
 
 ### Funding
 

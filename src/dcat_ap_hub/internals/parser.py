@@ -128,6 +128,7 @@ def parse_json_content(data: Dict, source_name: str) -> DatasetMetadata:
                     description=_extract_lang_value(entry.get("dct:description", "")),
                     format=format,
                     download_url=_extract_value(entry.get("dcat:downloadURL", "")),
+                    access_url=_extract_value(entry.get("dcat:accessURL", "")),
                     role=rel_role,
                 )
             )

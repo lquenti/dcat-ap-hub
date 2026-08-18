@@ -5,6 +5,8 @@ import os
 import tarfile
 import zipfile
 from pathlib import Path
+from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 from tqdm import tqdm
@@ -50,8 +52,87 @@ def _extract_archive(filepath: Path, target_dir: Path) -> None:
             logger.error(f"Failed to extract {current_file}: {e}")
 
 
-def _download_file(url: str, dest_path: Path, verbose: bool = False) -> Path:
-    """Stream download, correct extension via MIME, and return final path."""
+def _download_s3_file(
+    url: str, dest_path: Path, endpoint: Optional[str] = None, verbose: bool = False
+) -> Path:
+    """Stream an object from an S3-compatible store to disk and return final path.
+
+    `url` is an `s3://bucket/key/...` URI. `endpoint` is the service URL of the
+    S3-compatible store (e.g. https://minio.example.org), typically supplied via
+    `dcat:accessURL` so the metadata fully describes how to fetch. When omitted,
+    boto3 falls back to the AWS default endpoint, so real AWS S3 works without
+    accessURL. Credentials and region resolve via boto3's standard chain
+    (env vars, ~/.aws/credentials, IAM role).
+    """
+    try:
+        import boto3  # type: ignore[import-not-found]
+    except ImportError as e:
+        raise ImportError(
+            "The 'boto3' library is required to download from s3:// URLs. "
+            'Install the S3 variant with: pip install "dcat-ap-hub[s3]".'
+        ) from e
+
+    parsed = urlparse(url)
+    bucket = parsed.netloc
+    key = parsed.path.lstrip("/")
+    if not bucket or not key:
+        raise ValueError(f"Invalid s3:// URL: {url}")
+
+    client = boto3.client("s3", endpoint_url=endpoint or None)
+
+    # Resolve size + content type ahead of streaming for the progress bar.
+    head = client.head_object(Bucket=bucket, Key=key)
+    total = int(head.get("ContentLength", 0) or 0)
+    content_type = (head.get("ContentType", "") or "").split(";")[0]
+
+    # Extension correction: trust the S3 key suffix first. S3 objects frequently
+    # default to `application/octet-stream` (Content-Type unset at upload time),
+    # which mimetypes maps to `.bin` and would wrongly rename real files. Only
+    # fall back to Content-Type when both the title-derived name and the key
+    # lack an extension.
+    key_suffix = Path(key).suffix
+    if not dest_path.suffix and key_suffix:
+        dest_path = dest_path.with_suffix(key_suffix)
+    elif not dest_path.suffix:
+        ext = mimetypes.guess_extension(content_type)
+        if ext:
+            dest_path = dest_path.with_suffix(ext)
+
+    pbar = tqdm(
+        total=total,
+        unit="B",
+        unit_scale=True,
+        desc=dest_path.name,
+        disable=not verbose,
+    )
+
+    def _callback(bytes_transferred: int) -> None:
+        pbar.update(bytes_transferred)
+
+    try:
+        client.download_file(bucket, key, str(dest_path), Callback=_callback)
+    finally:
+        pbar.close()
+
+    return dest_path
+
+
+def _download_file(
+    url: str,
+    dest_path: Path,
+    endpoint: Optional[str] = None,
+    verbose: bool = False,
+) -> Path:
+    """Stream download, correct extension via MIME, and return final path.
+
+    For `s3://` URLs, delegates to `_download_s3_file` and uses `endpoint`
+    (typically from `dcat:accessURL`) as the S3-compatible service URL.
+    For `http(s)://` URLs, `endpoint` is ignored and the existing HTTP
+    streaming path is used.
+    """
+    if url.startswith("s3://"):
+        return _download_s3_file(url, dest_path, endpoint=endpoint, verbose=verbose)
+
     try:
         with requests.get(url, stream=True) as r:
             r.raise_for_status()
@@ -126,7 +207,9 @@ def download_dataset_files(
             logger.info(f"Downloading: {distro.title}")
 
         try:
-            final_path = _download_file(url, temp_path, verbose=verbose)
+            final_path = _download_file(
+                url, temp_path, endpoint=distro.access_url, verbose=verbose
+            )
 
             # Check for archive extraction
             if final_path.suffix in [".zip", ".tgz"] or final_path.name.endswith(
@@ -150,7 +233,9 @@ def download_dataset_files(
             logger.info(f"Downloading: {resource.title}")
 
         try:
-            final_path = _download_file(url, temp_path, verbose=verbose)
+            final_path = _download_file(
+                url, temp_path, endpoint=resource.access_url, verbose=verbose
+            )
 
             # Check for archive extraction
             if final_path.suffix in [".zip", ".tgz"] or final_path.name.endswith(

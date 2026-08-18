@@ -29,12 +29,19 @@ class Distribution:
 
 @dataclass
 class RelatedResource:
-    """Represents a related resource (e.g. processor script, notebook)."""
+    """Represents a related resource (e.g. processor script, notebook).
+
+    For S3-compatible downloads, `access_url` carries the endpoint URL
+    (e.g. https://minio.example.org) while `download_url` carries the
+    s3://bucket/key object URI. `best_url` intentionally returns only the
+    object URI; the endpoint is consulted separately by the transfer layer.
+    """
 
     title: str
     description: str
     format: str
     download_url: Optional[str] = None
+    access_url: str = ""
     role: Literal["processor", "notebook"] = "processor"
 
     @property
